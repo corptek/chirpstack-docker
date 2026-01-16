@@ -5,14 +5,27 @@ services:
     restart: unless-stopped
     volumes:
       - ./configuration/chirpstack:/etc/chirpstack
-    depends_on:
+    
+    # 1. FORCE HOST ENTRIES (The Fix)
+    links:
       - postgres
-      - mosquitto
       - redis
+      - mosquitto
+      
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      mosquitto:
+        condition: service_started
+        
     environment:
-      - MQTT_BROKER_HOST=mosquitto
-      - REDIS_HOST=redis
-      - POSTGRESQL_HOST=postgres
+      # Keep these overrides to ensure we use the linked names
+      - CHIRPSTACK__POSTGRESQL__DSN=postgres://chirpstack:chirpstack@postgres/chirpstack?sslmode=disable
+      - CHIRPSTACK__REDIS__URL=redis://redis/
+      - CHIRPSTACK__INTEGRATION__MQTT__SERVER=tcp://mosquitto:1883/
+      
     ports:
       - "8080:8080"
       
