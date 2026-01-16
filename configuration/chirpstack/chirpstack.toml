@@ -18,7 +18,8 @@
   #  * disable - Do not use TLS
   #  * prefer - Attempt to connect with TLS but allow sessions without
   #  * require - Require the use of TLS
-  dsn="postgres://chirpstack:chirpstack@$POSTGRESQL_HOST/chirpstack?sslmode=disable"
+  # Change "postgres" or "postgresql" to the IP:
+  dsn="postgres://chirpstack:chirpstack@172.28.0.2/chirpstack?sslmode=disable"
 
   # Max open connections.
   #
@@ -51,7 +52,6 @@
   # Set this to true when the provided URLs are pointing to a Redis Cluster
   # instance.
   cluster=false
-
 
 # Network related configuration.
 [network]
