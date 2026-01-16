@@ -13,10 +13,11 @@ services:
       mosquitto:
         condition: service_started
     environment:
-      # We explicitly point to the new service name "postgresql"
-      - CHIRPSTACK__POSTGRESQL__DSN=postgres://chirpstack:chirpstack@postgresql/chirpstack?sslmode=disable
-      - CHIRPSTACK__REDIS__URL=redis://redis/
-      - CHIRPSTACK__INTEGRATION__MQTT__SERVER=tcp://mosquitto:1883/
+      # --- DIRECT IP CONNECTION (NO DNS) ---
+      # We connect directly to 172.28.0.2 instead of "postgresql"
+      - CHIRPSTACK__POSTGRESQL__DSN=postgres://chirpstack:chirpstack@172.28.0.2/chirpstack?sslmode=disable
+      - CHIRPSTACK__REDIS__URL=redis://172.28.0.3/
+      - CHIRPSTACK__INTEGRATION__MQTT__SERVER=tcp://172.28.0.4:1883/
     ports:
       - "8080:8080"
     networks:
@@ -30,9 +31,9 @@ services:
     volumes:
       - ./configuration/chirpstack-gateway-bridge:/etc/chirpstack-gateway-bridge
     environment:
+      # Also hardcoding MQTT IP here to be safe
+      - INTEGRATION__MQTT__SERVER=tcp://172.28.0.4:1883/
       - INTEGRATION__MQTT__EVENT_TOPIC_TEMPLATE="au915_0/gateway/{{ .GatewayID }}/event/{{ .EventType }}"
-      - INTEGRATION__MQTT__STATE_TOPIC_TEMPLATE="au915_0/gateway/{{ .GatewayID }}/state/{{ .StateType }}"
-      - INTEGRATION__MQTT__COMMAND_TOPIC_TEMPLATE="au915_0/gateway/{{ .GatewayID }}/command/#"
     depends_on:
       - mosquitto
     networks:
@@ -62,7 +63,6 @@ services:
     networks:
       - chirpstack_net
 
-  # --- RENAMED SERVICE ---
   postgresql:
     image: postgres:14
     restart: unless-stopped
@@ -79,7 +79,8 @@ services:
       timeout: 5s
       retries: 5
     networks:
-      - chirpstack_net
+      chirpstack_net:
+        ipv4_address: 172.28.0.2  # <--- FIXED IP
 
   redis:
     image: redis:7-alpine
@@ -93,7 +94,8 @@ services:
       timeout: 3s
       retries: 5
     networks:
-      - chirpstack_net
+      chirpstack_net:
+        ipv4_address: 172.28.0.3  # <--- FIXED IP
 
   mosquitto:
     image: eclipse-mosquitto:2
@@ -103,13 +105,17 @@ services:
     volumes: 
       - ./configuration/mosquitto/config/:/mosquitto/config/
     networks:
-      - chirpstack_net
+      chirpstack_net:
+        ipv4_address: 172.28.0.4  # <--- FIXED IP
 
 volumes:
   postgresqldata:
   redisdata:
 
-# --- EXPLICIT NETWORK DEFINITION ---
+# --- DEFINE NETWORK WITH STATIC SUBNET ---
 networks:
   chirpstack_net:
     driver: bridge
+    ipam:
+      config:
+        - subnet: 172.28.0.0/16
