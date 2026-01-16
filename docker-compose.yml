@@ -11,12 +11,19 @@ services:
       redis:
         condition: service_healthy
       mosquitto:
-        # Reverted to standard startup (no healthcheck required)
         condition: service_started
     environment:
-      - MQTT_BROKER_HOST=mosquitto
-      - REDIS_HOST=redis
-      - POSTGRESQL_HOST=postgres
+      # --- CRITICAL FIX START ---
+      # Force ChirpStack to use the service name "postgres"
+      - CHIRPSTACK__POSTGRESQL__DSN=postgres://chirpstack:chirpstack@postgres/chirpstack?sslmode=disable
+      
+      # Force ChirpStack to use the service name "redis"
+      - CHIRPSTACK__REDIS__URL=redis://redis/
+      
+      # Force ChirpStack to use the service name "mosquitto"
+      - CHIRPSTACK__INTEGRATION__MQTT__SERVER=tcp://mosquitto:1883/
+      # --- CRITICAL FIX END ---
+      
     ports:
       - "8080:8080"
 
