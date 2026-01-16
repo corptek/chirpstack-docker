@@ -1,4 +1,5 @@
- chirpstack:
+services:
+   chirpstack:
     image: chirpstack/chirpstack:4
     command: -c /etc/chirpstack
     restart: unless-stopped
@@ -26,7 +27,7 @@
       - CHIRPSTACK__INTEGRATION__MQTT__SERVER=tcp://mosquitto:1883/
       
     ports:
-      - "8080:8080"
+      - "8080:8080" 
       
   chirpstack-gateway-bridge:
     image: chirpstack/chirpstack-gateway-bridge:4
