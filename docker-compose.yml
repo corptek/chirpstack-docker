@@ -61,7 +61,7 @@ services:
       - POSTGRES_PASSWORD=chirpstack
       - POSTGRES_DB=chirpstack
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      test: ["CMD-SHELL", "pg_isready -U chirpstack"]
       interval: 5s
       timeout: 5s
       retries: 5
