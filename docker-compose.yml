@@ -5,30 +5,23 @@ services:
     restart: unless-stopped
     volumes:
       - ./configuration/chirpstack:/etc/chirpstack
-    
-    # 1. FORCE HOST ENTRIES (The Fix)
-    links:
-      - postgres
-      - redis
-      - mosquitto
-      
     depends_on:
-      postgres:
+      postgresql:
         condition: service_healthy
       redis:
         condition: service_healthy
       mosquitto:
         condition: service_started
-        
     environment:
-      # Keep these overrides to ensure we use the linked names
-      - CHIRPSTACK__POSTGRESQL__DSN=postgres://chirpstack:chirpstack@postgres/chirpstack?sslmode=disable
+      # We explicitly point to the new service name "postgresql"
+      - CHIRPSTACK__POSTGRESQL__DSN=postgres://chirpstack:chirpstack@postgresql/chirpstack?sslmode=disable
       - CHIRPSTACK__REDIS__URL=redis://redis/
       - CHIRPSTACK__INTEGRATION__MQTT__SERVER=tcp://mosquitto:1883/
-      
     ports:
       - "8080:8080"
-      
+    networks:
+      - chirpstack_net
+
   chirpstack-gateway-bridge:
     image: chirpstack/chirpstack-gateway-bridge:4
     restart: unless-stopped
@@ -42,6 +35,8 @@ services:
       - INTEGRATION__MQTT__COMMAND_TOPIC_TEMPLATE="au915_0/gateway/{{ .GatewayID }}/command/#"
     depends_on:
       - mosquitto
+    networks:
+      - chirpstack_net
 
   chirpstack-gateway-bridge-basicstation:
     image: chirpstack/chirpstack-gateway-bridge:4
@@ -53,6 +48,8 @@ services:
       - ./configuration/chirpstack-gateway-bridge:/etc/chirpstack-gateway-bridge
     depends_on:
       - mosquitto
+    networks:
+      - chirpstack_net
 
   chirpstack-rest-api:
     image: chirpstack/chirpstack-rest-api:4
@@ -62,9 +59,12 @@ services:
       - "8090:8090"
     depends_on:
       - chirpstack
+    networks:
+      - chirpstack_net
 
-  postgres:
-    image: postgres:14-alpine
+  # --- RENAMED SERVICE ---
+  postgresql:
+    image: postgres:14
     restart: unless-stopped
     volumes:
       - ./configuration/postgresql/initdb:/docker-entrypoint-initdb.d
@@ -73,12 +73,13 @@ services:
       - POSTGRES_USER=chirpstack
       - POSTGRES_PASSWORD=chirpstack
       - POSTGRES_DB=chirpstack
-    # KEEP THIS: It is working and prevents the DNS error
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U chirpstack"]
       interval: 5s
       timeout: 5s
       retries: 5
+    networks:
+      - chirpstack_net
 
   redis:
     image: redis:7-alpine
@@ -86,12 +87,13 @@ services:
     command: redis-server --save 300 1 --save 60 100 --appendonly no
     volumes:
       - redisdata:/data
-    # KEEP THIS: It is working and prevents the DNS error
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
       timeout: 3s
       retries: 5
+    networks:
+      - chirpstack_net
 
   mosquitto:
     image: eclipse-mosquitto:2
@@ -100,8 +102,14 @@ services:
       - "1883:1883"
     volumes: 
       - ./configuration/mosquitto/config/:/mosquitto/config/
-    # Healthcheck removed to prevent false positives
+    networks:
+      - chirpstack_net
 
 volumes:
   postgresqldata:
   redisdata:
+
+# --- EXPLICIT NETWORK DEFINITION ---
+networks:
+  chirpstack_net:
+    driver: bridge
