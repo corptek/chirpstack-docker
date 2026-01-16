@@ -5,15 +5,14 @@ services:
     restart: unless-stopped
     volumes:
       - ./configuration/chirpstack:/etc/chirpstack
-    # --- FIX STARTS HERE ---
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
       mosquitto:
-        condition: service_healthy
-    # --- FIX ENDS HERE ---
+        # Reverted to standard startup (no healthcheck required)
+        condition: service_started
     environment:
       - MQTT_BROKER_HOST=mosquitto
       - REDIS_HOST=redis
@@ -33,8 +32,7 @@ services:
       - INTEGRATION__MQTT__STATE_TOPIC_TEMPLATE="au915_0/gateway/{{ .GatewayID }}/state/{{ .StateType }}"
       - INTEGRATION__MQTT__COMMAND_TOPIC_TEMPLATE="au915_0/gateway/{{ .GatewayID }}/command/#"
     depends_on:
-      mosquitto:
-        condition: service_healthy
+      - mosquitto
 
   chirpstack-gateway-bridge-basicstation:
     image: chirpstack/chirpstack-gateway-bridge:4
@@ -45,8 +43,7 @@ services:
     volumes:
       - ./configuration/chirpstack-gateway-bridge:/etc/chirpstack-gateway-bridge
     depends_on:
-      mosquitto:
-        condition: service_healthy
+      - mosquitto
 
   chirpstack-rest-api:
     image: chirpstack/chirpstack-rest-api:4
@@ -67,6 +64,7 @@ services:
       - POSTGRES_USER=chirpstack
       - POSTGRES_PASSWORD=chirpstack
       - POSTGRES_DB=chirpstack
+    # KEEP THIS: It is working and prevents the DNS error
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U chirpstack"]
       interval: 5s
@@ -79,6 +77,7 @@ services:
     command: redis-server --save 300 1 --save 60 100 --appendonly no
     volumes:
       - redisdata:/data
+    # KEEP THIS: It is working and prevents the DNS error
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
@@ -92,12 +91,7 @@ services:
       - "1883:1883"
     volumes: 
       - ./configuration/mosquitto/config/:/mosquitto/config/
-    # --- ADDED HEALTHCHECK HERE ---
-    healthcheck:
-        test: ["CMD", "mosquitto_sub", "-t", "$SYS/#", "-C", "1", "-i", "healthcheck", "-W", "3"]
-        interval: 5s
-        timeout: 10s
-        retries: 5
+    # Healthcheck removed to prevent false positives
 
 volumes:
   postgresqldata:
